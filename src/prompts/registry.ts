@@ -8,8 +8,6 @@
  *
  * Business Rule: Hardcoding prompts is strictly forbidden. All prompts
  * must be loaded through this registry to enable versioning and testing.
- *
- * @see 08_AI_PROVIDER_AND_PROMPT_REGISTRY.md Section 4.3 for architecture.
  */
 
 import { readFileSync, existsSync } from 'node:fs';
@@ -24,13 +22,44 @@ const __dirname = dirname(__filename);
 /** Path to the prompt templates directory */
 const TEMPLATES_DIR = join(__dirname, 'templates');
 
+/** Required variables that must exist in every loaded prompt template */
+const REQUIRED_TEMPLATE_VARS = ['technology_stack', 'frameworks', 'repository_guidelines', 'rule_engine_findings'] as const;
+
+/** In-memory cache for loaded templates to avoid re-parsing YAML on every review */
+const templateCache = new Map<string, PromptConfig>();
+
 /**
- * Loads a prompt template from a YAML file.
+ * Validates that a loaded prompt template contains all required variables.
+ * Missing variables do not block loading but are warned about,
+ * as they would cause silent rendering failures at review time.
+ */
+function validateTemplate(template: PromptConfig, templateName: string): boolean {
+  const combined = template.systemPrompt + template.userPrompt;
+  for (const v of REQUIRED_TEMPLATE_VARS) {
+    if (!combined.includes(`{{${v}}}`)) {
+      console.warn(`[PromptRegistry] Template "${templateName}" is missing required variable "${v}". It will not be available during prompt rendering.`);
+    }
+  }
+  // Check that essential sections exist (non-empty prompts)
+  if (!template.systemPrompt.trim() || !template.userPrompt.trim()) {
+    console.warn(`[PromptRegistry] Template "${templateName}" has empty system_prompt or user_prompt.`);
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Loads a prompt template from a YAML file with caching.
  *
  * @param templateName - The name of the template file (without .yaml extension).
- * @returns A PromptConfig object, or null if the template doesn't exist.
+ * @returns A PromptConfig object, or null if the template doesn't exist or is invalid.
  */
 export function loadTemplate(templateName: string): PromptConfig | null {
+  // Check cache first
+  if (templateCache.has(templateName)) {
+    return templateCache.get(templateName) ?? null;
+  }
+
   const filePath = join(TEMPLATES_DIR, `${templateName}.yaml`);
 
   if (!existsSync(filePath)) return null;
@@ -44,16 +73,32 @@ export function loadTemplate(templateName: string): PromptConfig | null {
       user_prompt?: string;
     };
 
-    return {
+    const config: PromptConfig = {
       name: parsed.name ?? templateName,
       version: parsed.version ?? '1.0.0',
       systemPrompt: parsed.system_prompt ?? '',
       userPrompt: parsed.user_prompt ?? '',
     };
+
+    // Validate the loaded template
+    if (!validateTemplate(config, templateName)) {
+      return null;
+    }
+
+    // Cache before returning
+    templateCache.set(templateName, config);
+    return config;
   } catch (error) {
     console.warn(`[PromptRegistry] Failed to load template "${templateName}": ${error}`);
     return null;
   }
+}
+
+/**
+ * Clears the in-memory template cache. Useful for testing or hot-reloading.
+ */
+export function clearCache(): void {
+  templateCache.clear();
 }
 
 /**
@@ -122,13 +167,19 @@ export function resolvePrompts(techProfile: TechnologyProfile): PromptConfig[] {
     prompts.push(generalPrompt);
   }
 
-  // If no prompts loaded at all, create a minimal fallback
+  // If no prompts loaded at all, create a fallback with output format
   if (prompts.length === 0) {
     prompts.push({
       name: 'fallback',
       version: '1.0.0',
-      systemPrompt: 'You are a senior software engineer reviewing code changes. Provide actionable feedback.',
-      userPrompt: 'Review the following code:\n\n{{code_content}}',
+      systemPrompt: `You are a senior software engineer reviewing code changes. Provide actionable, high-signal feedback.
+
+## Rules
+1. Only flag genuine issues with concrete evidence. If the code is clean, return an empty findings array.
+2. Include the specific lines of code that have the issue in your evidence.
+3. Be constructive and educational — explain WHY something is wrong, not just THAT it is wrong.
+4. Return findings as a JSON array with: title, severity (Critical|High|Medium|Low), confidence (0-100), impact, evidence, recommendation.`,
+      userPrompt: 'Review the following code for bugs, security issues, and improvements:\n\n### Code\n```\n{{code_content}}\n```\n\nReturn your review as a single raw JSON array of findings — no markdown fences, no extra text.',
     });
   }
 
