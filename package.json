@@ -18,8 +18,7 @@
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest",
-    "eval": "promptfoo eval -c eval/promptfooconfig.yaml"
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
@@ -71,7 +70,6 @@
     "@types/node": "^22.10.0",
     "concurrently": "^10.0.3",
     "prisma": "^7.8.0",
-    "promptfoo": "^0.121.17",
     "tsup": "^8.3.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
