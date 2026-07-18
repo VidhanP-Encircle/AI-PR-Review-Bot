@@ -3,13 +3,12 @@
  * Global Pino Logger Configuration.
  *
  * Uses pino-pretty in development for readable console output,
- * and standard JSON formatting in production for log aggregation.
+ * and standard JSON formatting in production.
  */
 
 import pino from 'pino';
 
 const isProd = process.env.NODE_ENV === 'production';
-const lokiHost = process.env.LOKI_HOST || 'http://localhost:3100';
 
 const targets: pino.TransportTargetOptions[] = [];
 
@@ -23,22 +22,9 @@ if (!isProd) {
   });
 }
 
-// Always send logs to Loki
-targets.push({
-  target: 'pino-loki',
-  options: {
-    batching: true,
-    interval: 5,
-    host: lokiHost,
-    labels: { application: 'ai-pr-reviewer' },
-  },
-});
-
 export const logger = pino({
   level: process.env.LOG_LEVEL || 'info',
-  transport: {
-    targets,
-  },
+  transport: targets.length > 0 ? { targets } : undefined,
 });
 
 /**

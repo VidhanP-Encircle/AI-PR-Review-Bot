@@ -1,4 +1,3 @@
-
 services:
   redis:
     image: redis:7-alpine
@@ -50,7 +49,6 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - HOST=0.0.0.0
-      - LOKI_HOST=http://loki:3100
     depends_on:
       postgres:
         condition: service_healthy
@@ -71,30 +69,7 @@ services:
       - backend
     restart: unless-stopped
 
-  loki:
-    image: grafana/loki:latest
-    container_name: ai-reviewer-loki-prod
-    user: "0:0"
-    ports:
-      - '3100:3100'
-    volumes:
-      - ./monitoring/loki-config.yml:/etc/loki/local-config.yaml
-      - loki_data_prod:/tmp/loki
-    command: -config.file=/etc/loki/local-config.yaml
-    restart: unless-stopped
-
-  promtail:
-    image: grafana/promtail:latest
-    container_name: ai-reviewer-promtail-prod
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - ./monitoring/promtail-config.yml:/etc/promtail/config.yml
-    command: -config.file=/etc/promtail/config.yml
-    restart: unless-stopped
-
 volumes:
   redis_data_prod:
   pg_data_prod:
-  loki_data_prod:
   repo_cache_data_prod:
