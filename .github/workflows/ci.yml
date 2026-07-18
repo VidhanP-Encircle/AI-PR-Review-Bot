@@ -28,7 +28,9 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+        run: |
+          npm ci --legacy-peer-deps
+          npx prisma generate
 
       - name: TypeScript check
         run: npx tsc --noEmit
@@ -50,7 +52,9 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+        run: |
+          npm ci --legacy-peer-deps
+          npx prisma generate
 
       - name: Run tests
         run: npm test
@@ -76,7 +80,9 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+        run: |
+          npm ci --legacy-peer-deps
+          npx prisma generate
 
       - name: Build server
         run: npm run build

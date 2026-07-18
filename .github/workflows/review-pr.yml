@@ -33,7 +33,9 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+        run: |
+          npm ci --legacy-peer-deps
+          npx prisma generate
 
       - name: Generate PR diff
         id: diff
