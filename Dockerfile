@@ -9,7 +9,7 @@ COPY prisma ./prisma/
 
 # Install build dependencies for native modules (like tree-sitter)
 RUN apk add --no-cache --virtual .build-deps python3 make g++ && \
-    npm ci && \
+    npm ci --legacy-peer-deps && \
     apk del .build-deps
 
 # Copy the rest of the application
@@ -33,7 +33,7 @@ COPY prisma ./prisma/
 # Install runtime dependencies (like git for repository caching), build dependencies, install production dependencies, and clean up build tools
 RUN apk add --no-cache git && \
     apk add --no-cache --virtual .build-deps python3 make g++ && \
-    npm ci --omit=dev && \
+    npm ci --omit=dev --legacy-peer-deps && \
     apk del .build-deps
 
 # Generate Prisma client for production
