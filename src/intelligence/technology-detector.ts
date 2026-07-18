@@ -58,7 +58,8 @@ function collectExtensions(
   depth: number = 0
 ): void {
   // Safety: cap recursion depth to prevent massive repo hangs
-  if (depth > 5) return;
+  // Depth of 12 handles deeply nested Maven/Gradle projects (src/main/java/org/...)
+  if (depth > 12) return;
 
   let entries: string[];
   try {

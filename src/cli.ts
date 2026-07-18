@@ -20,7 +20,7 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 // Adapters
-import { LocalDiffAdapter } from './adapters/local-diff.adapter.js';
+import { createLocalDiffAdapter } from './adapters/local-diff.adapter.js';
 
 // Intelligence Pipeline
 import { detectTechnology } from './intelligence/technology-detector.js';
@@ -72,7 +72,7 @@ async function runReview(diffPath: string, repoPath: string): Promise<void> {
 
   // ── Step 1: Parse the diff ─────────────────────────────────────────────
   console.log('📄 Parsing diff file...');
-  const adapter = new LocalDiffAdapter(diffPath, repoPath);
+  const adapter = createLocalDiffAdapter(diffPath, repoPath);
   const event = adapter.parseWebhook(null);
   const diffFiles = await adapter.fetchDiff(event);
   console.log(`   Found ${diffFiles.length} changed file(s)\n`);

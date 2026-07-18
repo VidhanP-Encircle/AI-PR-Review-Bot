@@ -12,7 +12,7 @@
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { GitHubAdapter } from '../adapters/github.adapter.js';
+import { createGitHubAdapter } from '../adapters/github.adapter.js';
 import type { Queues } from '../queue/queue-config.js';
 import { prisma } from '../db/prisma.js';
 import { getLogger } from '../utils/logger.js';
@@ -191,7 +191,7 @@ export function registerWebhookRoutes(
     }
 
     // Step 4: Parse and normalize the webhook payload for PR events
-    const githubAdapter = new GitHubAdapter(process.env.GITHUB_TOKEN ?? '');
+    const githubAdapter = createGitHubAdapter(process.env.GITHUB_TOKEN ?? '');
 
     let event;
     try {

@@ -6,6 +6,9 @@
  * a fully initialized instance. This is the single source of truth for
  * provider resolution — both the CLI and server use this factory.
  *
+ * Supports automatic fallback: if AI_FALLBACK_PROVIDER is set and the
+ * primary provider exhausts retries, the fallback provider is used.
+ *
  * To add a new provider:
  * 1. Create a new file implementing the `AIProvider` interface.
  * 2. Add a case to the `switch` statement below.
@@ -15,23 +18,26 @@
  */
 
 import type { AIProvider } from './ai-provider.interface.js';
-import { GeminiProvider } from './gemini.provider.js';
-import { OllamaProvider } from './ollama.provider.js';
-import { ClaudeProvider } from './claude.provider.js';
-import { OpenRouterProvider } from './openrouter.provider.js';
+import { createFallbackProvider } from './fallback-provider.js';
+import { createGeminiProvider } from './gemini.provider.js';
+import { createOllamaProvider } from './ollama.provider.js';
+import { createClaudeProvider } from './claude.provider.js';
+import { createOpenRouterProvider } from './openrouter.provider.js';
+import { getLogger } from '../utils/logger.js';
+
+const logger = getLogger('ai-provider-factory');
 
 /**
- * Creates and returns an AI provider instance based on environment configuration.
+ * Creates a single provider instance by name.
+ * Internal helper used by createAIProvider and createFallbackProvider.
  *
- * Reads `AI_PROVIDER` to determine which provider to instantiate and
- * `AI_MODEL` for an optional model override.
- *
- * @returns An initialized AIProvider ready for inference.
+ * @param providerName - The provider name (gemini, claude, ollama, openrouter).
+ * @param modelOverride - Optional model override.
+ * @returns An initialized AIProvider.
  * @throws Error if the provider name is unrecognized or required env vars are missing.
  */
-export function createAIProvider(): AIProvider {
-  const providerName = process.env.AI_PROVIDER ?? 'gemini';
-  const model = process.env.AI_MODEL;
+function createSingleProvider(providerName: string, modelOverride?: string): AIProvider {
+  const model = modelOverride ?? process.env.AI_MODEL;
 
   switch (providerName.toLowerCase()) {
     case 'gemini': {
@@ -41,7 +47,7 @@ export function createAIProvider(): AIProvider {
           'GEMINI_API_KEY is required when AI_PROVIDER=gemini. Set it in your .env file.'
         );
       }
-      return new GeminiProvider(apiKey, model ?? 'gemini-2.5-flash');
+      return createGeminiProvider(apiKey, model ?? 'gemini-2.5-flash');
     }
 
     case 'claude': {
@@ -51,12 +57,12 @@ export function createAIProvider(): AIProvider {
           'ANTHROPIC_API_KEY is required when AI_PROVIDER=claude. Set it in your .env file.'
         );
       }
-      return new ClaudeProvider(apiKey, model ?? 'claude-opus-4-20250514');
+      return createClaudeProvider(apiKey, model ?? 'claude-opus-4-20250514');
     }
 
     case 'ollama': {
       const baseUrl = process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434';
-      return new OllamaProvider(model ?? 'deepseek-coder-v2', baseUrl);
+      return createOllamaProvider(model ?? 'deepseek-coder-v2', baseUrl);
     }
 
     case 'openrouter': {
@@ -66,12 +72,52 @@ export function createAIProvider(): AIProvider {
           'OPENROUTER_API_KEY is required when AI_PROVIDER=openrouter. Set it in your .env file.'
         );
       }
-      return new OpenRouterProvider(apiKey, model ?? 'openai/gpt-4o-mini');
+      return createOpenRouterProvider(apiKey, model ?? 'openai/gpt-4o-mini');
     }
 
     default:
       throw new Error(
-        `Unknown AI_PROVIDER: "${providerName}". Supported: gemini, claude, ollama, openrouter`
+        `Unknown AI provider: "${providerName}". Supported: gemini, claude, ollama, openrouter`
       );
   }
 }
+
+/**
+ * Creates and returns an AI provider instance based on environment configuration.
+ *
+ * Primary provider is determined by `AI_PROVIDER` (default: gemini).
+ * If `AI_FALLBACK_PROVIDER` is set, the primary and fallback are wrapped
+ * in a FallbackProvider for automatic failover on exhaustion.
+ *
+ * @returns An initialized AIProvider (possibly with fallback wrapper).
+ * @throws Error if the provider name is unrecognized or required env vars are missing.
+ */
+export function createAIProvider(): AIProvider {
+  const providerName = process.env.AI_PROVIDER ?? 'gemini';
+  const fallbackName = process.env.AI_FALLBACK_PROVIDER;
+
+  // Create the primary provider
+  const primary = createSingleProvider(providerName);
+
+  // If no fallback configured, return the primary directly
+  if (!fallbackName) {
+    logger.info(`AI provider: ${primary.name} (no fallback configured)`);
+    return primary;
+  }
+
+  // Create the fallback provider
+  try {
+    const fallback = createSingleProvider(fallbackName, process.env.AI_FALLBACK_MODEL);
+    const wrapped = createFallbackProvider(primary, fallback);
+    logger.info(`AI provider: ${primary.name} → fallback: ${fallback.name} (auto-failover enabled)`);
+    return wrapped;
+  } catch (err) {
+    logger.warn(
+      { fallbackName, err },
+      `Failed to configure fallback provider "${fallbackName}". Running without fallback.`
+    );
+    return primary;
+  }
+}
+
+export { createFallbackProvider, createSingleProvider };

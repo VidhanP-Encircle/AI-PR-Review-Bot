@@ -16,7 +16,7 @@ import { Worker, type Job } from 'bullmq';
 import { QUEUE_NAMES, getRedisConnection, type Queues } from './queue-config.js';
 
 // Adapters
-import { GitHubAdapter, parseGitDiff } from '../adapters/github.adapter.js';
+import { createGitHubAdapter, parseGitDiff } from '../adapters/github.adapter.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import pLimit from 'p-limit';
@@ -43,7 +43,7 @@ import { mergeAndRankFindings } from '../pipeline/result-merger.js';
 import { calculateReviewScore } from '../ai/score-calculator.js';
 
 // Cache
-import { RepositoryCache } from '../cache/repository-cache.js';
+import { createRepositoryCache } from '../cache/repository-cache.js';
 
 // Database
 import { prisma } from '../db/prisma.js';
@@ -139,7 +139,7 @@ export function createReviewWorker(
   queues: Queues
 ): Worker {
   const connection = getRedisConnection();
-  const repoCache = new RepositoryCache();
+  const repoCache = createRepositoryCache();
 
   const worker = new Worker<ReviewJobData>(
     QUEUE_NAMES.REVIEW,
@@ -160,18 +160,18 @@ export function createReviewWorker(
           include: { organization: true }
         });
 
-        // Initialize GitHubAdapter with App or PAT
-        let githubAdapter: GitHubAdapter;
+        // Initialize GitHub adapter with App or PAT
+        let githubAdapter: ReturnType<typeof createGitHubAdapter>;
         const org = repo?.organization;
         
         if (org?.githubInstallationId && process.env.GITHUB_APP_ID && process.env.GITHUB_APP_PRIVATE_KEY) {
-          githubAdapter = new GitHubAdapter({
+          githubAdapter = createGitHubAdapter({
             appId: process.env.GITHUB_APP_ID,
             privateKey: process.env.GITHUB_APP_PRIVATE_KEY,
             installationId: org.githubInstallationId,
           });
         } else {
-          githubAdapter = new GitHubAdapter(process.env.GITHUB_TOKEN ?? '');
+          githubAdapter = createGitHubAdapter(process.env.GITHUB_TOKEN ?? '');
         }
 
         // Build the clone URL with authentication token

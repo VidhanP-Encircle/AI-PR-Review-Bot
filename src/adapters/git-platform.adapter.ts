@@ -37,6 +37,7 @@ export interface GitPlatformAdapter {
    *
    * @param event - The normalized PR event identifying the target PR.
    * @param findings - The array of enriched findings to publish.
+   * @param metadata - Optional PR-level metadata (summary, risk, suggestedTests).
    */
-  postReview(event: PullRequestEvent, findings: unknown[]): Promise<void>;
+  postReview(event: PullRequestEvent, findings: unknown[], metadata?: { summary?: string; risk?: string; suggestedTests?: string[] }): Promise<void>;
 }

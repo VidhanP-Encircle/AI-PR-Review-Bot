@@ -138,6 +138,13 @@ export function renderReviewOutput(
     }
 
     console.log(chalk.gray('─'.repeat(70)));
+  } else if (totalChunks > 0 && metrics.inputTokens === 0 && metrics.outputTokens === 0) {
+    // AI analysis failed or was unavailable (no tokens consumed despite having chunks to review)
+    console.log('');
+    console.log(chalk.yellow.bold('⚠️  AI analysis was unavailable or failed'));
+    console.log(chalk.yellow('   No AI findings were generated — the AI provider could not be reached'));
+    console.log(chalk.yellow('   or returned errors for all chunks. Check your API key configuration.'));
+    console.log(chalk.yellow(`   Provider: ${metrics.provider}, Chunks to review: ${totalChunks}`));
   } else {
     console.log('');
     console.log(chalk.green.bold('✅ No AI findings — the code looks clean!'));

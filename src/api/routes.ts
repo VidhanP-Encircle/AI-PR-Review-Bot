@@ -18,7 +18,7 @@ import { createAppAuth } from '@octokit/auth-app';
 import type { Queues } from '../queue/queue-config.js';
 import type { PullRequestEvent } from '../types/index.js';
 import { getLogger } from '../utils/logger.js';
-import { RepositoryCache } from '../cache/repository-cache.js';
+import { createRepositoryCache } from '../cache/repository-cache.js';
 
 const logger = getLogger('api-routes');
 
@@ -200,7 +200,7 @@ export function registerDashboardRoutes(app: FastifyInstance, queues?: Queues): 
       return reply.status(404).send({ error: 'Repository not found or access denied' });
     }
 
-    const repoCache = new RepositoryCache();
+    const repoCache = createRepositoryCache();
     // In review-worker, the cache folder uses fullName with '/' replaced by '-'
     const cacheId = repo.fullName.replace('/', '-');
     const deleted = await repoCache.deleteRepository(cacheId);
