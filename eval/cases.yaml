@@ -1,0 +1,105 @@
+- vars:
+    scenario: "Python Context Manager Leak"
+    code_content: |
+      def process_data(file_path, data):
+          f = open(file_path, 'w')
+          if not data:
+              raise ValueError("No data provided")
+          f.write(data)
+          f.close()
+    surrounding_context: ""
+    technology_stack: '{"languages": [{"name":"Python","percentage":100}], "frameworks": [], "testingLibraries": [], "packageManagers": ["pip"], "linters": []}'
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output);
+        return data.findings.some(f => {
+            const text = JSON.stringify(f).toLowerCase();
+            return text.includes('leak') || text.includes('close') || text.includes('context manager') || text.includes('resource');
+        });
+
+- vars:
+    scenario: "JavaScript Prototype Pollution"
+    code_content: |
+      function mergeObjects(target, source) {
+          for (let key in source) {
+              if (typeof source[key] === 'object' && source[key] !== null) {
+                  if (!target[key]) target[key] = {};
+                  mergeObjects(target[key], source[key]);
+              } else {
+                  target[key] = source[key];
+              }
+          }
+          return target;
+      }
+    surrounding_context: ""
+    technology_stack: '{"languages": [{"name":"JavaScript","percentage":100}], "frameworks": [], "testingLibraries": [], "packageManagers": ["npm"], "linters": []}'
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output);
+        return data.findings.some(f => f.title.toLowerCase().includes('prototype') || f.title.toLowerCase().includes('pollution'));
+
+- vars:
+    scenario: "Go Loop Variable Capture (pre-Go 1.22)"
+    code_content: |
+      func processItems(items []string) {
+          var wg sync.WaitGroup
+          for _, item := range items {
+              wg.Add(1)
+              go func() {
+                  defer wg.Done()
+                  process(item)
+              }()
+          }
+          wg.Wait()
+      }
+    surrounding_context: "import \"sync\""
+    technology_stack: '{"languages": [{"name":"Go","percentage":100}], "frameworks": [], "testingLibraries": [], "packageManagers": ["go mod"], "linters": []}'
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output);
+        return data.findings.some(f => f.title.toLowerCase().includes('loop') || f.title.toLowerCase().includes('capture') || f.title.toLowerCase().includes('closure') || f.title.toLowerCase().includes('shadow'));
+
+- vars:
+    scenario: "React Stale Closure in useEffect"
+    code_content: |
+      function Counter() {
+          const [count, setCount] = useState(0);
+      
+          useEffect(() => {
+              const interval = setInterval(() => {
+                  setCount(count + 1);
+              }, 1000);
+              return () => clearInterval(interval);
+          }, []);
+      
+          return <div>{count}</div>;
+      }
+    surrounding_context: "import { useState, useEffect } from 'react';"
+    technology_stack: '{"languages": [{"name":"TypeScript","percentage":100}], "frameworks": ["React"], "testingLibraries": [], "packageManagers": ["npm"], "linters": []}'
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output);
+        return data.findings.some(f => f.title.toLowerCase().includes('stale') || f.title.toLowerCase().includes('closure') || f.title.toLowerCase().includes('dependency'));
+
+- vars:
+    scenario: "Hallucination Trap: Safe Command Execution"
+    code_content: |
+      function pingServer(hostname) {
+          if (!/^[a-zA-Z0-9.-]+$/.test(hostname)) {
+              throw new Error("Invalid hostname");
+          }
+          return child_process.execSync(`ping -c 1 ${hostname}`).toString();
+      }
+    surrounding_context: "const child_process = require('child_process');"
+    technology_stack: '{"languages": [{"name":"JavaScript","percentage":100}], "frameworks": ["Node.js"], "testingLibraries": [], "packageManagers": ["npm"], "linters": []}'
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output);
+        // It should NOT flag command injection because the regex strictly validates the input.
+        const hallucinated = data.findings.some(f => f.title.toLowerCase().includes('injection') || f.title.toLowerCase().includes('vulnerability'));
+        return !hallucinated;

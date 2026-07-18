@@ -1,0 +1,46 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@theme {
+  --color-background: #0a0a0a; /* Neutral 950 */
+  --color-foreground: #fafafa;
+  
+  --color-card: #171717; /* Neutral 900 */
+  --color-card-foreground: #fafafa;
+  
+  --color-primary: #4f46e5; /* Indigo 600 */
+  --color-primary-foreground: #ffffff;
+  
+  --color-secondary: #262626; /* Neutral 800 */
+  --color-secondary-foreground: #fafafa;
+  
+  --color-muted: #262626;
+  --color-muted-foreground: #a3a3a3; /* Neutral 400 */
+  
+  --color-accent: #404040; /* Neutral 700 */
+  --color-accent-foreground: #fafafa;
+  
+  --color-destructive: #ef4444; /* Red 500 */
+  --color-destructive-foreground: #fafafa;
+  
+  --color-border: #262626;
+  --color-input: #262626;
+  --color-ring: #4f46e5;
+
+  --radius-lg: 0.5rem;
+  --radius-md: calc(0.5rem - 2px);
+  --radius-sm: calc(0.5rem - 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(79,70,229,0.12),rgba(255,255,255,0))];
+  }
+}
+
+.glass-panel {
+  @apply bg-card/60 backdrop-blur-xl border border-white/5 border-t-white/10 shadow-2xl;
+}

@@ -1,0 +1,8 @@
+node_modules
+dist
+.git
+.env
+.repo-cache
+dashboard
+scripts
+test-delete*.js

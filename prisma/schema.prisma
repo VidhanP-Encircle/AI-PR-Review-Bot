@@ -1,0 +1,149 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  engineType = "library"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ----------------------------------------------------------------------
+// Phase 3 Models
+// ----------------------------------------------------------------------
+
+/// Organization represents a billing and RBAC boundary
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users                User[]
+  repositories         Repository[]
+  githubInstallationId String?
+}
+
+/// User represents a registered dashboard user
+model User {
+  id             String       @id @default(cuid())
+  email          String       @unique
+  hashedPassword String
+  role           UserRole     @default(MEMBER)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+}
+
+enum UserRole {
+  ADMIN
+  MEMBER
+}
+
+/// Repository represents a linked GitHub repository
+model Repository {
+  id             String       @id @default(cuid())
+  githubId       String       @unique
+  fullName       String       @unique // e.g., "owner/repo"
+  cloneUrl       String
+  defaultBranch  String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  pullRequests PullRequest[]
+}
+
+/// PullRequest tracks the state machine of an AI review
+model PullRequest {
+  id           String      @id @default(cuid())
+  prNumber     Int
+  headSha      String
+  baseSha      String
+  title        String
+  author       String
+  status       ReviewState @default(QUEUED)
+  summary      String?     // AI-generated PR summary
+  riskLevel    String?     // "Low" | "Medium" | "High" | "Critical"
+  suggestedTests String?   // JSON-encoded array of suggested test scenarios
+  errorMessage String?     // Error message if review fails
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  repositoryId String
+  repository   Repository  @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  findings  ReviewFinding[]
+  telemetry Telemetry?
+
+  @@unique([repositoryId, prNumber])
+}
+
+enum ReviewState {
+  RECEIVED
+  QUEUED
+  REPOSITORY_READY
+  REPOSITORY_INDEXED
+  CONTEXT_GENERATED
+  AI_REVIEWING
+  RESULTS_VALIDATED
+  PUBLISHING
+  COMPLETED
+  FAILED
+}
+
+/// ReviewFinding persists individual AI findings from a PR review
+model ReviewFinding {
+  id            String      @id @default(cuid())
+  pullRequestId String
+  pullRequest   PullRequest @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
+  
+  filePath       String
+  lineNumber     Int
+  severity       Severity
+  title          String
+  evidence       String
+  recommendation String
+  issueCode      String?
+  suggestedFix   String?
+  confidence     Int
+  ruleId         String?    // If it came from the deterministic rule engine
+  
+  status         FindingStatus @default(PENDING)
+  feedbackReason String?    // Stores the reason a developer rejected or ignored the finding
+  githubCommentId String?   // Associates this finding with a specific GitHub review comment
+
+  createdAt DateTime @default(now())
+}
+
+enum FindingStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  IGNORED
+}
+
+enum Severity {
+  Critical
+  High
+  Medium
+  Low
+}
+
+/// Telemetry tracks token usage and cost per PR review
+model Telemetry {
+  id            String      @id @default(cuid())
+  pullRequestId String      @unique
+  pullRequest   PullRequest @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
+  
+  provider         String
+  inputTokens      Int
+  outputTokens     Int
+  inferenceMs      Int
+  estimatedCostUsd Float
+  
+  createdAt DateTime @default(now())
+}
